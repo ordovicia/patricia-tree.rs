@@ -107,7 +107,7 @@ impl PatriciaTree {
 
             let st = match (prefix.get(c_idx), s.get(c_idx)) {
                 (Some(p), Some(c)) if p == c => IteratingState::Continue,
-                (Some(_), Some(_)) => {
+                (Some(_), Some(_)) /* p != c */ => {
                     let (p_pre, p_suf) = split_charvec_str(&prefix, c_idx);
                     let s_suf = split_charvec_str1(&s, c_idx);
 
@@ -157,6 +157,8 @@ impl PatriciaTree {
             match st {
                 IteratingState::Continue => {
                     c_idx += 1;
+                    assert!(c_idx <= self.prefix.len());
+                    assert!(c_idx <= s.len());
                 }
                 IteratingState::Finished => {
                     return;
@@ -188,10 +190,19 @@ impl PatriciaTree {
                 }
                 (None, None) => {
                     match self.children.len() {
-                        0 => {} // TODO
-                        1 => {}
-                        2 => {}
-                        _ => {}
+                        0 => {
+                            // FIXME: assert!(self.is_leaf);
+                            self.is_leaf = false;
+                        }
+                        1 => {
+                            // FIXME: assert!(self.is_leaf);
+                            assert!(self.children[0].is_leaf);
+                            self.prefix.push_str(&self.children[0].prefix);
+                            self.children.clear();
+                        }
+                        _ => {
+                            self.is_leaf = false;
+                        }
                     }
                     IteratingState::Finished
                 }
@@ -201,6 +212,8 @@ impl PatriciaTree {
             match st {
                 IteratingState::Continue => {
                     c_idx += 1;
+                    assert!(c_idx <= self.prefix.len());
+                    assert!(c_idx <= s.len());
                 }
                 IteratingState::Finished => {
                     return;
@@ -210,19 +223,19 @@ impl PatriciaTree {
     }
 
     pub fn size(&self) -> usize {
-        let s1: usize = if self.is_leaf { 1 } else { 0 };
-        let s2: usize = self.children.iter().map(|c| c.size()).sum();
-        s1 + s2
+        let leaf_cnt: usize = if self.is_leaf { 1 } else { 0 };
+        let children_cnt: usize = self.children.iter().map(|c| c.size()).sum();
+        leaf_cnt + children_cnt
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::PatriciaTree;
+    use super::*;
 
     #[allow(dead_code)]
     fn print(root: &PatriciaTree) {
-        println!("==> PatriciaTree <==");
+        println!("\n==> PatriciaTree <==");
         print_r(root, 0);
     }
 
@@ -244,9 +257,49 @@ mod tests {
     }
 
     #[test]
+    fn slice_to_string_test() {
+        assert_eq!(slice_to_string(&[]), "");
+        assert_eq!(slice_to_string(&['a']), "a");
+        assert_eq!(slice_to_string(&['a', 'b']), "ab");
+    }
+
+    #[test]
+    fn split_charvec_str_test() {
+        assert_eq!(split_charvec_str(&vec![], 0),
+                   (String::from(""), String::from("")));
+        assert_eq!(split_charvec_str(&vec!['a'], 0),
+                   (String::from(""), String::from("a")));
+        assert_eq!(split_charvec_str(&vec!['a'], 1),
+                   (String::from("a"), String::from("")));
+        assert_eq!(split_charvec_str(&vec!['a', 'b'], 1),
+                   (String::from("a"), String::from("b")));
+        assert_eq!(split_charvec_str(&vec!['a', 'b', 'c'], 1),
+                   (String::from("a"), String::from("bc")));
+        assert_eq!(split_charvec_str(&vec!['a', 'b', 'c'], 2),
+                   (String::from("ab"), String::from("c")));
+    }
+
+    #[test]
+    #[should_panic]
+    fn split_charvec_str_panic_test() {
+        split_charvec_str(&vec![], 1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn split_charvec_str_panic_test2() {
+        split_charvec_str(&vec!['a'], 2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn split_charvec_str_panic_test3() {
+        split_charvec_str(&vec!['a', 'b'], 3);
+    }
+
+    #[test]
     fn cmp_first_char_test() {
         use std::cmp::Ordering;
-        use super::cmp_first_char;
 
         assert_eq!(cmp_first_char("", ""), Ordering::Equal);
         assert_eq!(cmp_first_char("a", ""), Ordering::Greater);
@@ -320,19 +373,27 @@ mod tests {
         root.add("root");
         root.add("rooter");
         root.add("roast");
+        print(&root);
 
-        // root.remove("roast");
-        // assert!(!root.exist("roast"));
-        // root.remove("root");
-        // assert!(!root.exist("root"));
-        // root.remove("test");
-        // assert!(!root.exist("test"));
-        // root.remove("teapot");
-        // assert!(!root.exist("teapot"));
-        // root.remove("rooter");
-        // assert!(!root.exist("rooter"));
-        // root.remove("tea");
-        // assert!(!root.exist("tea"));
-        //
+        macro_rules! make_remove_test {
+            ($e:expr) => {{
+                assert!(root.exist($e));
+                root.remove($e);
+                print(&root);
+                assert!(!root.exist($e));
+            }};
+        }
+    }
+
+    #[test]
+    fn remove_add_test() {
+        let mut root = PatriciaTree::new();
+        root.add("test");
+        root.add("tea");
+        root.add("teapot");
+        root.add("root");
+        root.add("rooter");
+        root.add("roast");
+        print(&root);
     }
 }
