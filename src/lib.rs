@@ -136,8 +136,7 @@ impl PatriciaTree {
                 }
                 (None, Some(_)) => {
                     let s_suf = split_charvec_str1(&s, c_idx);
-                    match self.children
-                        .binary_search_by(|c| cmp_first_char(&c.prefix, &s_suf)) {
+                    match self.children.binary_search_by(|c| cmp_first_char(&c.prefix, &s_suf)) {
                         Ok(child_pos) => {
                             self.children[child_pos].add(&s_suf);
                         }
@@ -257,86 +256,25 @@ mod tests {
     }
 
     #[test]
-    fn slice_to_string_test() {
-        assert_eq!(slice_to_string(&[]), "");
-        assert_eq!(slice_to_string(&['a']), "a");
-        assert_eq!(slice_to_string(&['a', 'b']), "ab");
-    }
-
-    #[test]
-    fn split_charvec_str_test() {
-        assert_eq!(split_charvec_str(&vec![], 0),
-                   (String::from(""), String::from("")));
-        assert_eq!(split_charvec_str(&vec!['a'], 0),
-                   (String::from(""), String::from("a")));
-        assert_eq!(split_charvec_str(&vec!['a'], 1),
-                   (String::from("a"), String::from("")));
-        assert_eq!(split_charvec_str(&vec!['a', 'b'], 1),
-                   (String::from("a"), String::from("b")));
-        assert_eq!(split_charvec_str(&vec!['a', 'b', 'c'], 1),
-                   (String::from("a"), String::from("bc")));
-        assert_eq!(split_charvec_str(&vec!['a', 'b', 'c'], 2),
-                   (String::from("ab"), String::from("c")));
-    }
-
-    #[test]
-    #[should_panic]
-    fn split_charvec_str_panic_test() {
-        split_charvec_str(&vec![], 1);
-    }
-
-    #[test]
-    #[should_panic]
-    fn split_charvec_str_panic_test2() {
-        split_charvec_str(&vec!['a'], 2);
-    }
-
-    #[test]
-    #[should_panic]
-    fn split_charvec_str_panic_test3() {
-        split_charvec_str(&vec!['a', 'b'], 3);
-    }
-
-    #[test]
-    fn cmp_first_char_test() {
-        use std::cmp::Ordering;
-
-        assert_eq!(cmp_first_char("", ""), Ordering::Equal);
-        assert_eq!(cmp_first_char("a", ""), Ordering::Greater);
-        assert_eq!(cmp_first_char("", "a"), Ordering::Less);
-        assert_eq!(cmp_first_char("a", "a"), Ordering::Equal);
-        assert_eq!(cmp_first_char("a", "b"), Ordering::Less);
-        assert_eq!(cmp_first_char("b", "a"), Ordering::Greater);
-        assert_eq!(cmp_first_char("a", "ab"), Ordering::Equal);
-        assert_eq!(cmp_first_char("bc", "b"), Ordering::Equal);
-        assert_eq!(cmp_first_char("a", "bc"), Ordering::Less);
-        assert_eq!(cmp_first_char("bc", "cd"), Ordering::Less);
-        assert_eq!(cmp_first_char("b", "ac"), Ordering::Greater);
-        assert_eq!(cmp_first_char("ca", "b"), Ordering::Greater);
-    }
-
-    #[test]
     fn add_size_test() {
         let mut root = PatriciaTree::new();
+        let mut expected_size = 0;
         assert_eq!(root.size(), 0);
 
-        root.add("test");
-        assert_eq!(root.size(), 1);
+        macro_rules! make_size_test {
+            ($e:expr) => {{
+                root.add($e);
+                expected_size += 1;
+                assert_eq!(root.size(), expected_size);
+            }};
+        }
 
-        root.add("tea");
-        assert_eq!(root.size(), 2);
-
-        root.add("teapot");
-        assert_eq!(root.size(), 3);
-
-        root.add("root");
-        assert_eq!(root.size(), 4);
-
-        root.add("rooter");
-        assert_eq!(root.size(), 5);
-
-        root.add("roast");
-        assert_eq!(root.size(), 6);
+        make_size_test!("test");
+        make_size_test!("root");
+        make_size_test!("tea");
+        make_size_test!("rooter");
+        make_size_test!("roast");
+        make_size_test!("teapot");
     }
 
     #[test]
