@@ -8,10 +8,6 @@ fn slice_to_string(s: &[char]) -> String {
     s.to_vec().into_iter().collect()
 }
 
-fn split_charvec_str1(s: &Vec<char>, at: usize) -> String {
-    slice_to_string(s.split_at(at).1)
-}
-
 fn split_charvec_str(s: &Vec<char>, at: usize) -> (String, String) {
     let (p, s) = s.split_at(at);
     (slice_to_string(p), slice_to_string(s))
@@ -57,9 +53,8 @@ impl PatriciaTree {
     }
 
     pub fn exist(&self, s: &str) -> bool {
-        let mut c_idx: usize = 0;
         let mut prefix = self.prefix.chars();
-        let s: Vec<char> = s.chars().collect();
+        let mut s = s.chars();
 
         loop {
             enum IteratingState {
@@ -67,8 +62,8 @@ impl PatriciaTree {
                 Result(bool),
             }
 
-            let st = match (prefix.next(), s.get(c_idx)) {
-                (Some(p), Some(&c)) => {
+            let st = match (prefix.next(), s.next()) {
+                (Some(p), Some(c)) => {
                     if p == c {
                         IteratingState::Continue
                     } else {
@@ -76,18 +71,16 @@ impl PatriciaTree {
                     }
                 }
                 (Some(_), None) => IteratingState::Result(false),
-                (None, Some(_)) => {
-                    let s_suf = split_charvec_str1(&s, c_idx);
-                    let result = self.children.iter().any(|c| c.exist(&s_suf));
-                    IteratingState::Result(result)
+                (None, Some(c)) => {
+                    let s_suffix = format!("{}{}", c, s.as_str());
+                    let recursive_result = self.children.iter().any(|c| c.exist(&s_suffix));
+                    IteratingState::Result(recursive_result)
                 }
                 (None, None) => IteratingState::Result(self.is_leaf),
             };
 
             match st {
-                IteratingState::Continue => {
-                    c_idx += 1;
-                }
+                IteratingState::Continue => {}
                 IteratingState::Result(b) => {
                     return b;
                 }
@@ -98,7 +91,7 @@ impl PatriciaTree {
     pub fn add(&mut self, s: &str) {
         let mut c_idx: usize = 0;
         let prefix: Vec<char> = self.prefix.chars().collect();
-        let s: Vec<char> = s.chars().collect();
+        let mut s = s.chars();
 
         loop {
             enum IteratingState {
@@ -106,44 +99,44 @@ impl PatriciaTree {
                 Finished,
             }
 
-            let st = match (prefix.get(c_idx), s.get(c_idx)) {
-                (Some(p), Some(c)) if p == c => IteratingState::Continue,
-                (Some(_), Some(_)) /* p != c */ => {
-                    let (p_pre, p_suf) = split_charvec_str(&prefix, c_idx);
-                    let s_suf = split_charvec_str1(&s, c_idx);
+            let st = match (prefix.get(c_idx), s.next()) {
+                (Some(&p), Some(c)) if p == c => IteratingState::Continue,
+                (Some(_), Some(c)) /* p != c */ => {
+                    let (p_prefix, p_suffix) = split_charvec_str(&prefix, c_idx);
+                    let s_suffix = format!("{}{}", c, s.as_str());
 
                     let mut child_children = vec![];
                     std::mem::swap(&mut child_children, &mut self.children);
-                    let child = PatriciaTree::box_with(&p_suf, self.is_leaf, child_children);
+                    let child = PatriciaTree::box_with(&p_suffix, self.is_leaf, child_children);
                     self.add_child(child);
-                    self.add_child(PatriciaTree::box_with(&s_suf, true, vec![]));
+                    self.add_child(PatriciaTree::box_with(&s_suffix, true, vec![]));
 
-                    self.prefix = p_pre;
+                    self.prefix = p_prefix;
                     self.is_leaf = false;
 
                     IteratingState::Finished
                 }
                 (Some(_), None) => {
-                    let (p_pre, p_suf) = split_charvec_str(&prefix, c_idx);
+                    let (p_prefix, p_suffix) = split_charvec_str(&prefix, c_idx);
 
                     let mut child_children = vec![];
                     std::mem::swap(&mut child_children, &mut self.children);
-                    let child = PatriciaTree::box_with(&p_suf, self.is_leaf, child_children);
+                    let child = PatriciaTree::box_with(&p_suffix, self.is_leaf, child_children);
                     self.add_child(child);
 
-                    self.prefix = p_pre;
+                    self.prefix = p_prefix;
                     self.is_leaf = true;
 
                     IteratingState::Finished
                 }
-                (None, Some(_)) => {
-                    let s_suf = split_charvec_str1(&s, c_idx);
-                    match self.children.binary_search_by(|c| c.cmp_first_char(&s_suf)) {
+                (None, Some(c)) => {
+                    let s_suffix = format!("{}{}", c, s.as_str());
+                    match self.children.binary_search_by(|c| c.cmp_first_char(&s_suffix)) {
                         Ok(child_pos) => {
-                            self.children[child_pos].add(&s_suf);
+                            self.children[child_pos].add(&s_suffix);
                         }
                         Err(_) => {
-                            self.add_child(PatriciaTree::box_with(&s_suf, true, vec![]));
+                            self.add_child(PatriciaTree::box_with(&s_suffix, true, vec![]));
                         }
                     }
 
@@ -159,7 +152,6 @@ impl PatriciaTree {
                 IteratingState::Continue => {
                     c_idx += 1;
                     assert!(c_idx <= self.prefix.len());
-                    assert!(c_idx <= s.len());
                 }
                 IteratingState::Finished => {
                     return;
@@ -171,7 +163,7 @@ impl PatriciaTree {
     pub fn remove(&mut self, s: &str) {
         let mut c_idx: usize = 0;
         let prefix: Vec<char> = self.prefix.chars().collect();
-        let s: Vec<char> = s.chars().collect();
+        let mut s = s.chars();
 
         loop {
             enum IteratingState {
@@ -179,13 +171,13 @@ impl PatriciaTree {
                 Finished,
             }
 
-            let st = match (prefix.get(c_idx), s.get(c_idx)) {
-                (Some(p), Some(c)) if p != c => IteratingState::Finished,
+            let st = match (prefix.get(c_idx), s.next()) {
+                (Some(&p), Some(c)) if p != c => IteratingState::Finished,
                 (Some(_), None) => IteratingState::Finished,
-                (None, Some(_)) => {
-                    let s_suf = split_charvec_str1(&s, c_idx);
+                (None, Some(c)) => {
+                    let s_suffix = format!("{}{}", c, s.as_str());
                     for c in &mut self.children {
-                        c.remove(&s_suf);
+                        c.remove(&s_suffix);
                     }
                     IteratingState::Finished
                 }
@@ -205,6 +197,7 @@ impl PatriciaTree {
                             self.is_leaf = false;
                         }
                     }
+
                     IteratingState::Finished
                 }
                 _ => IteratingState::Continue,
@@ -214,7 +207,6 @@ impl PatriciaTree {
                 IteratingState::Continue => {
                     c_idx += 1;
                     assert!(c_idx <= self.prefix.len());
-                    assert!(c_idx <= s.len());
                 }
                 IteratingState::Finished => {
                     return;
