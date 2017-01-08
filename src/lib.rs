@@ -41,11 +41,19 @@ impl PatriciaTree {
                 is_leaf: bool,
                 children: Vec<Box<PatriciaTree>>)
                 -> Box<PatriciaTree> {
+        assert!(prefix != "");
         Box::new(PatriciaTree {
             prefix: prefix.to_owned(),
             is_leaf: is_leaf,
             children: children,
         })
+    }
+
+    fn add_child(&mut self, child: Box<PatriciaTree>) {
+        match self.children.binary_search_by(|c| cmp_first_char(&c.prefix, &child.prefix)) {
+            Err(p) => self.children.insert(p, child),
+            _ => {}
+        }
     }
 
     pub fn exist(&self, s: &str) -> bool {
@@ -87,13 +95,6 @@ impl PatriciaTree {
         }
     }
 
-    fn push_child(&mut self, child: Box<PatriciaTree>) {
-        match self.children.binary_search_by(|c| cmp_first_char(&c.prefix, &child.prefix)) {
-            Err(p) => self.children.insert(p, child),
-            _ => {}
-        }
-    }
-
     pub fn add(&mut self, s: &str) {
         let mut c_idx: usize = 0;
         let prefix: Vec<char> = self.prefix.chars().collect();
@@ -114,8 +115,8 @@ impl PatriciaTree {
                     let mut child_children = vec![];
                     std::mem::swap(&mut child_children, &mut self.children);
                     let child = PatriciaTree::box_with(&p_suf, self.is_leaf, child_children);
-                    self.push_child(child);
-                    self.push_child(PatriciaTree::box_with(&s_suf, true, vec![]));
+                    self.add_child(child);
+                    self.add_child(PatriciaTree::box_with(&s_suf, true, vec![]));
 
                     self.prefix = p_pre;
                     self.is_leaf = false;
@@ -128,7 +129,8 @@ impl PatriciaTree {
                     let mut child_children = vec![];
                     std::mem::swap(&mut child_children, &mut self.children);
                     let child = PatriciaTree::box_with(&p_suf, self.is_leaf, child_children);
-                    self.push_child(child);
+                    self.add_child(child);
+
                     self.prefix = p_pre;
                     self.is_leaf = true;
 
@@ -141,7 +143,7 @@ impl PatriciaTree {
                             self.children[child_pos].add(&s_suf);
                         }
                         Err(_) => {
-                            self.push_child(PatriciaTree::box_with(&s_suf, true, vec![]));
+                            self.add_child(PatriciaTree::box_with(&s_suf, true, vec![]));
                         }
                     }
 
@@ -190,12 +192,12 @@ impl PatriciaTree {
                 (None, None) => {
                     match self.children.len() {
                         0 => {
-                            // FIXME: assert!(self.is_leaf);
+                            // assert!(self.is_leaf); TODO
                             self.is_leaf = false;
                         }
                         1 => {
-                            // FIXME: assert!(self.is_leaf);
-                            assert!(self.children[0].is_leaf);
+                            // assert!(self.is_leaf); TODO
+                            // assert!(self.children[0].is_leaf); TODO
                             self.prefix.push_str(&self.children[0].prefix);
                             self.children.clear();
                         }
@@ -232,24 +234,19 @@ impl PatriciaTree {
 mod tests {
     use super::*;
 
-    #[allow(dead_code)]
     fn print(root: &PatriciaTree) {
         println!("\n==> PatriciaTree <==");
         print_r(root, 0);
     }
 
-    #[allow(dead_code)]
     fn print_r(tree: &PatriciaTree, indent: i32) {
         for _ in 0..indent {
             print!(" ");
         }
 
-        print!("|- \"{}\"", tree.prefix);
-        if tree.is_leaf {
-            println!(" [leaf]");
-        } else {
-            println!("");
-        }
+        print!("|- \"{}\" {}",
+               tree.prefix,
+               if tree.is_leaf { "[leaf]" } else { "" });
         for c in &tree.children {
             print_r(c, indent + 2);
         }
@@ -259,22 +256,24 @@ mod tests {
     fn add_size_test() {
         let mut root = PatriciaTree::new();
         let mut expected_size = 0;
-        assert_eq!(root.size(), 0);
+        assert_eq!(root.size(), expected_size);
 
-        macro_rules! make_size_test {
-            ($e:expr) => {{
-                root.add($e);
+        {
+            let mut test = |s| {
+                root.add(s);
                 expected_size += 1;
                 assert_eq!(root.size(), expected_size);
-            }};
+            };
+
+            test("test");
+            test("root");
+            test("tea");
+            test("rooter");
+            test("roast");
+            test("teapot");
         }
 
-        make_size_test!("test");
-        make_size_test!("root");
-        make_size_test!("tea");
-        make_size_test!("rooter");
-        make_size_test!("roast");
-        make_size_test!("teapot");
+        print(&root);
     }
 
     #[test]
@@ -282,24 +281,24 @@ mod tests {
         let mut root = PatriciaTree::new();
         assert!(!root.exist("test"));
 
-        root.add("test");
-        assert!(root.exist("test"));
+        {
+            let mut test = |s| {
+                root.add(s);
+                assert!(root.exist(s));
+            };
 
-        root.add("tea");
-        assert!(root.exist("tea"));
+            test("root");
+            test("tea");
+            test("roast");
+            test("rooter");
+            test("test");
+            test("teapot");
+        }
+
         assert!(!root.exist("te"));
-
-        root.add("teapot");
-        assert!(root.exist("teapot"));
-        assert!(root.exist("tea"));
-
-        root.add("root");
-        root.add("rooter");
-        root.add("roast");
-        assert!(root.exist("root"));
-        assert!(root.exist("rooter"));
-        assert!(root.exist("roast"));
         assert!(!root.exist("ro"));
+
+        print(&root);
     }
 
     #[test]
@@ -311,27 +310,25 @@ mod tests {
         root.add("root");
         root.add("rooter");
         root.add("roast");
+
         print(&root);
 
-        macro_rules! make_remove_test {
-            ($e:expr) => {{
-                assert!(root.exist($e));
-                root.remove($e);
+        {
+            let mut test = |s| {
+                assert!(root.exist(s));
+                root.remove(s);
                 print(&root);
-                assert!(!root.exist($e));
-            }};
-        }
-    }
+                assert!(!root.exist(s));
+            };
 
-    #[test]
-    fn remove_add_test() {
-        let mut root = PatriciaTree::new();
-        root.add("test");
-        root.add("tea");
-        root.add("teapot");
-        root.add("root");
-        root.add("rooter");
-        root.add("roast");
+            test("teapot");
+            test("roast");
+            test("root");
+            test("test");
+            test("tea");
+            test("rooter");
+        }
+
         print(&root);
     }
 }
