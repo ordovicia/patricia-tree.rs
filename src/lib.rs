@@ -41,7 +41,7 @@ impl PatriciaTree {
     fn add_child(&mut self, child: Box<PatriciaTree>) {
         match self.children.binary_search_by(|c| c.cmp_first_char(&child.prefix)) {
             Err(p) => self.children.insert(p, child),
-            _ => {}
+            _ => unreachable!(),
         }
     }
 
