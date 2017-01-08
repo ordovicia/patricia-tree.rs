@@ -17,17 +17,6 @@ fn split_charvec_str(s: &Vec<char>, at: usize) -> (String, String) {
     (slice_to_string(p), slice_to_string(s))
 }
 
-fn cmp_first_char(s1: &str, s2: &str) -> std::cmp::Ordering {
-    use std::cmp::Ordering;
-
-    match (s1.chars().next(), s2.chars().next()) {
-        (Some(c1), Some(c2)) => c1.cmp(&c2),
-        (Some(_), None) => Ordering::Greater,
-        (None, Some(_)) => Ordering::Less,
-        (None, None) => Ordering::Equal,
-    }
-}
-
 impl PatriciaTree {
     pub fn new() -> PatriciaTree {
         PatriciaTree {
@@ -50,9 +39,20 @@ impl PatriciaTree {
     }
 
     fn add_child(&mut self, child: Box<PatriciaTree>) {
-        match self.children.binary_search_by(|c| cmp_first_char(&c.prefix, &child.prefix)) {
+        match self.children.binary_search_by(|c| c.cmp_first_char(&child.prefix)) {
             Err(p) => self.children.insert(p, child),
             _ => {}
+        }
+    }
+
+    fn cmp_first_char(&self, s: &str) -> std::cmp::Ordering {
+        use std::cmp::Ordering;
+
+        match (self.prefix.chars().next(), s.chars().next()) {
+            (Some(c1), Some(c2)) => c1.cmp(&c2),
+            (Some(_), None) => Ordering::Greater,
+            (None, Some(_)) => Ordering::Less,
+            (None, None) => Ordering::Equal,
         }
     }
 
@@ -138,7 +138,7 @@ impl PatriciaTree {
                 }
                 (None, Some(_)) => {
                     let s_suf = split_charvec_str1(&s, c_idx);
-                    match self.children.binary_search_by(|c| cmp_first_char(&c.prefix, &s_suf)) {
+                    match self.children.binary_search_by(|c| c.cmp_first_char(&s_suf)) {
                         Ok(child_pos) => {
                             self.children[child_pos].add(&s_suf);
                         }
