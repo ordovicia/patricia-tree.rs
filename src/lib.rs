@@ -161,6 +161,10 @@ impl PatriciaTree {
     }
 
     pub fn remove(&mut self, s: &str) {
+        if s.is_empty() {
+            return;
+        }
+
         let mut c_idx: usize = 0;
         let prefix: Vec<char> = self.prefix.chars().collect();
         let mut s = s.chars();
@@ -184,13 +188,14 @@ impl PatriciaTree {
                 (None, None) => {
                     match self.children.len() {
                         0 => {
-                            // assert!(self.is_leaf); TODO
+                            // assert!(self.is_leaf); FIXME
                             self.is_leaf = false;
                         }
                         1 => {
-                            // assert!(self.is_leaf); TODO
-                            // assert!(self.children[0].is_leaf); TODO
+                            assert!(self.is_leaf);
+                            // assert!(self.children[0].is_leaf); FIXME
                             self.prefix.push_str(&self.children[0].prefix);
+                            self.is_leaf = self.children[0].is_leaf; // FIXME
                             self.children.clear();
                         }
                         _ => {
