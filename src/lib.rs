@@ -236,9 +236,9 @@ mod tests {
             print!(" ");
         }
 
-        print!("|- \"{}\" {}",
-               tree.prefix,
-               if tree.is_leaf { "[leaf]" } else { "" });
+        println!("|- \"{}\" {}",
+                 tree.prefix,
+                 if tree.is_leaf { "[leaf]" } else { "" });
         for c in &tree.children {
             print_r(c, indent + 2);
         }
