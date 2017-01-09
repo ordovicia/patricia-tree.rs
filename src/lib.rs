@@ -266,22 +266,22 @@ mod tests {
         let mut expected_size = 0;
         assert_eq!(root.size(), expected_size);
 
-        {
-            let mut test = |s| {
-                root.add(s);
+        macro_rules! test {
+            ($s: expr) => {{
+                println!("\nAdding \"{}\"...", $s);
+                root.add($s);
                 expected_size += 1;
+                println!("{:#?}", root);
                 assert_eq!(root.size(), expected_size);
-            };
+            }}
+        };
 
-            test("test");
-            test("root");
-            test("tea");
-            test("rooter");
-            test("roast");
-            test("teapot");
-        }
-
-        print(&root);
+        test!("test");
+        test!("root");
+        test!("tea");
+        test!("rooter");
+        test!("roast");
+        test!("teapot");
     }
 
     #[test]
@@ -289,24 +289,24 @@ mod tests {
         let mut root = PatriciaTree::new();
         assert!(!root.exist("test"));
 
-        {
-            let mut test = |s| {
-                root.add(s);
-                assert!(root.exist(s));
-            };
+        macro_rules! test {
+            ($s: expr) => {{
+                println!("\nAdding \"{}\"...", $s);
+                root.add($s);
+                println!("{:#?}", root);
+                assert!(root.exist($s));
+            }}
+        };
 
-            test("root");
-            test("tea");
-            test("roast");
-            test("rooter");
-            test("test");
-            test("teapot");
-        }
+        test!("root");
+        test!("tea");
+        test!("roast");
+        test!("rooter");
+        test!("test");
+        test!("teapot");
 
         assert!(!root.exist("te"));
         assert!(!root.exist("ro"));
-
-        print(&root);
     }
 
     #[test]
@@ -319,24 +319,23 @@ mod tests {
         root.add("rooter");
         root.add("roast");
 
-        print(&root);
+        println!("{:#?}", root);
 
-        {
-            let mut test = |s| {
-                assert!(root.exist(s));
-                root.remove(s);
-                print(&root);
-                assert!(!root.exist(s));
-            };
+        macro_rules! test {
+            ($s: expr) => {{
+                assert!(root.exist($s));
+                println!("\nRemoving \"{}\"...", $s);
+                root.remove($s);
+                println!("{:#?}", root);
+                assert!(!root.exist($s));
+            }}
+        };
 
-            test("teapot");
-            test("roast");
-            test("root");
-            test("test");
-            test("tea");
-            test("rooter");
-        }
-
-        print(&root);
+        test!("teapot");
+        test!("roast");
+        test!("root");
+        test!("test");
+        test!("tea");
+        test!("rooter");
     }
 }
