@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct PatriciaTree {
     prefix: String,
     is_leaf: bool,
@@ -227,27 +228,37 @@ impl PatriciaTree {
     }
 }
 
+use std::fmt::Display;
+
+impl Display for PatriciaTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        const INDENT_WIDTH: usize = 2;
+
+        fn fmt_r(f: &mut std::fmt::Formatter, tree: &PatriciaTree, indent: usize) {
+            for _ in 0..indent {
+                write!(f, " ").unwrap();
+            }
+            writeln!(f,
+                     "- {} {}",
+                     tree.prefix,
+                     if tree.is_leaf { "[leaf]" } else { "" })
+                .unwrap();
+            for c in &tree.children {
+                fmt_r(f, c, indent + INDENT_WIDTH);
+            }
+        };
+
+        writeln!(f, "- (root)").unwrap();
+        for c in &self.children {
+            fmt_r(f, c, INDENT_WIDTH);
+        }
+        write!(f, "")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn print(root: &PatriciaTree) {
-        println!("\n==> PatriciaTree <==");
-        print_r(root, 0);
-    }
-
-    fn print_r(tree: &PatriciaTree, indent: i32) {
-        for _ in 0..indent {
-            print!(" ");
-        }
-
-        println!("|- \"{}\" {}",
-                 tree.prefix,
-                 if tree.is_leaf { "[leaf]" } else { "" });
-        for c in &tree.children {
-            print_r(c, indent + 2);
-        }
-    }
 
     #[test]
     fn add_size_test() {
