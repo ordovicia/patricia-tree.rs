@@ -74,7 +74,11 @@ impl PatriciaTree {
                 (Some(_), None) => IteratingState::Result(false),
                 (None, Some(c)) => {
                     let s_suffix = format!("{}{}", c, s.as_str());
-                    let recursive_result = self.children.iter().any(|c| c.exist(&s_suffix));
+                    let recursive_result = match self.children
+                        .binary_search_by(|c| c.cmp_first_char(&s_suffix)) {
+                        Ok(child_idx) => self.children[child_idx].exist(&s_suffix),
+                        Err(_) => false,
+                    };
                     IteratingState::Result(recursive_result)
                 }
                 (None, None) => IteratingState::Result(self.is_leaf),
@@ -133,8 +137,8 @@ impl PatriciaTree {
                 (None, Some(c)) => {
                     let s_suffix = format!("{}{}", c, s.as_str());
                     match self.children.binary_search_by(|c| c.cmp_first_char(&s_suffix)) {
-                        Ok(child_pos) => {
-                            self.children[child_pos].add(&s_suffix);
+                        Ok(child_idx) => {
+                            self.children[child_idx].add(&s_suffix);
                         }
                         Err(_) => {
                             self.add_child(PatriciaTree::box_with(&s_suffix, true, vec![]));
