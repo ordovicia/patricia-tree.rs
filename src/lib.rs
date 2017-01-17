@@ -185,9 +185,13 @@ impl PatriciaTree {
                 (Some(_), None) => IteratingState::Finished,
                 (None, Some(c)) => {
                     let s_suffix = format!("{}{}", c, s.as_str());
-                    for c in &mut self.children {
-                        c.remove(&s_suffix);
+                    match self.children.binary_search_by(|c| c.cmp_first_char(&s_suffix)) {
+                        Ok(child_idx) => {
+                            self.children[child_idx].remove(&s_suffix);
+                        }
+                        Err(_) => {}
                     }
+
                     IteratingState::Finished
                 }
                 (None, None) => {
