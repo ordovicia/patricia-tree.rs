@@ -1,8 +1,8 @@
 #[derive(Debug)]
-pub struct PatriciaTree {
+pub struct PatriciaTree<Item> {
     prefix: String,
-    is_leaf: bool,
-    children: Vec<Box<PatriciaTree>>,
+    value: Option<Item>,
+    children: Vec<Box<PatriciaTree<Item>>>,
 }
 
 fn slice_to_string(s: &[char]) -> String {
@@ -14,28 +14,28 @@ fn split_charvec_str(s: &Vec<char>, at: usize) -> (String, String) {
     (slice_to_string(p), slice_to_string(s))
 }
 
-impl PatriciaTree {
-    pub fn new() -> PatriciaTree {
+impl<Item> PatriciaTree<Item> {
+    pub fn new() -> PatriciaTree<Item> {
         PatriciaTree {
             prefix: String::new(),
-            is_leaf: false,
+            value: None,
             children: vec![],
         }
     }
 
     fn box_with(prefix: &str,
-                is_leaf: bool,
-                children: Vec<Box<PatriciaTree>>)
-                -> Box<PatriciaTree> {
+                value: Option<Item>,
+                children: Vec<Box<PatriciaTree<Item>>>)
+                -> Box<PatriciaTree<Item>> {
         assert!(prefix != "");
-        Box::new(PatriciaTree {
-            prefix: prefix.to_owned(),
-            is_leaf: is_leaf,
-            children: children,
-        })
+        Box::new(PatriciaTree::<Item> {
+                     prefix: prefix.to_owned(),
+                     value: value,
+                     children: children,
+                 })
     }
 
-    fn add_child(&mut self, child: Box<PatriciaTree>) {
+    fn add_child(&mut self, child: Box<PatriciaTree<Item>>) {
         match self.children.binary_search_by(|c| c.cmp_first_char(&child.prefix)) {
             Err(p) => self.children.insert(p, child),
             _ => unreachable!(),
@@ -58,110 +58,130 @@ impl PatriciaTree {
         let mut s = s.chars();
 
         loop {
-            enum IteratingState {
-                Continue,
-                Result(bool),
-            }
-
-            let st = match (prefix.next(), s.next()) {
-                (Some(p), Some(c)) => {
-                    if p == c {
-                        IteratingState::Continue
-                    } else {
-                        IteratingState::Result(false)
-                    }
+            match (prefix.next(), s.next()) {
+                (Some(p), Some(c)) if p == c => { /* continue */ }
+                (Some(_), Some(_)) => {
+                    return false;
                 }
-                (Some(_), None) => IteratingState::Result(false),
+                (Some(_), None) => {
+                    return false;
+                }
                 (None, Some(c)) => {
                     let s_suffix = format!("{}{}", c, s.as_str());
-                    let recursive_result = match self.children
-                        .binary_search_by(|c| c.cmp_first_char(&s_suffix)) {
-                        Ok(child_idx) => self.children[child_idx].exist(&s_suffix),
-                        Err(_) => false,
-                    };
-                    IteratingState::Result(recursive_result)
+                    return match self.children.binary_search_by(|c| c.cmp_first_char(&s_suffix)) {
+                               Ok(child_idx) => self.children[child_idx].exist(&s_suffix),
+                               Err(_) => false,
+                           };
                 }
-                (None, None) => IteratingState::Result(self.is_leaf),
+                (None, None) => {
+                    return self.value.is_some();
+                }
             };
-
-            match st {
-                IteratingState::Continue => {}
-                IteratingState::Result(b) => {
-                    return b;
-                }
-            }
         }
     }
 
-    pub fn add(&mut self, s: &str) {
+    pub fn add(&mut self, s: &str, value: Item) {
         let mut c_idx: usize = 0;
         let prefix: Vec<char> = self.prefix.chars().collect();
         let mut s = s.chars();
 
         loop {
-            enum IteratingState {
-                Continue,
-                Finished,
-            }
-
-            let st = match (prefix.get(c_idx), s.next()) {
-                (Some(&p), Some(c)) if p == c => IteratingState::Continue,
+            match (prefix.get(c_idx), s.next()) {
+                (Some(&p), Some(c)) if p == c => {
+                    c_idx += 1;
+                    assert!(c_idx <= self.prefix.len());
+                },
                 (Some(_), Some(c)) /* p != c */ => {
-                    let (p_prefix, p_suffix) = split_charvec_str(&prefix, c_idx);
-                    let s_suffix = format!("{}{}", c, s.as_str());
+                    /*
+                     * tea + test -> te
+                     *  |             |--|
+                     *  |             a  st
+                     *  |             |
+                     * pot            pot
+                     */
 
+                    let (p_prefix, p_suffix) = split_charvec_str(&prefix, c_idx); // te, a
+                    let s_suffix = format!("{}{}", c, s.as_str()); // st
+
+                    let mut child_value = None;
+                    std::mem::swap(&mut child_value, &mut self.value);
                     let mut child_children = vec![];
                     std::mem::swap(&mut child_children, &mut self.children);
-                    let child = PatriciaTree::box_with(&p_suffix, self.is_leaf, child_children);
+                    let child = PatriciaTree::box_with(&p_suffix, child_value, child_children); // a
                     self.add_child(child);
-                    self.add_child(PatriciaTree::box_with(&s_suffix, true, vec![]));
+
+                    self.add_child(PatriciaTree::box_with(&s_suffix, Some(value), vec![])); // st
 
                     self.prefix = p_prefix;
-                    self.is_leaf = false;
 
-                    IteratingState::Finished
+                    break;
                 }
                 (Some(_), None) => {
-                    let (p_prefix, p_suffix) = split_charvec_str(&prefix, c_idx);
+                    /*
+                     * teapot + tea -> tea
+                     *                  |
+                     *                 pot
+                     */
 
+                    let (p_prefix, p_suffix) = split_charvec_str(&prefix, c_idx); // tea, pot
+
+                    let mut child_value = None;
+                    std::mem::swap(&mut child_value, &mut self.value);
                     let mut child_children = vec![];
                     std::mem::swap(&mut child_children, &mut self.children);
-                    let child = PatriciaTree::box_with(&p_suffix, self.is_leaf, child_children);
+                    let child = PatriciaTree::box_with(&p_suffix, child_value, child_children); // pot
                     self.add_child(child);
 
                     self.prefix = p_prefix;
-                    self.is_leaf = true;
+                    self.value = Some(value);
 
-                    IteratingState::Finished
+                    break;
                 }
                 (None, Some(c)) => {
                     let s_suffix = format!("{}{}", c, s.as_str());
                     match self.children.binary_search_by(|c| c.cmp_first_char(&s_suffix)) {
                         Ok(child_idx) => {
-                            self.children[child_idx].add(&s_suffix);
+                            self.children[child_idx].add(&s_suffix, value);
                         }
                         Err(_) => {
-                            self.add_child(PatriciaTree::box_with(&s_suffix, true, vec![]));
+                            self.add_child(PatriciaTree::box_with(&s_suffix, Some(value), vec![]));
                         }
                     }
 
-                    IteratingState::Finished
+                    break;
                 }
                 (None, None) => {
-                    self.is_leaf = true;
-                    IteratingState::Finished
-                }
-            };
-
-            match st {
-                IteratingState::Continue => {
-                    c_idx += 1;
-                    assert!(c_idx <= self.prefix.len());
-                }
-                IteratingState::Finished => {
-                    return;
+                    self.value = Some(value);
+                    break;
                 }
             }
+        }
+    }
+
+    pub fn find(&self, s: &str) -> Option<&Item> {
+        let mut prefix = self.prefix.chars();
+        let mut s = s.chars();
+
+        loop {
+            match (prefix.next(), s.next()) {
+                (Some(p), Some(c)) if p == c => { /* continue */ }
+                (Some(_), Some(_)) => {
+                    return None;
+                }
+                (Some(_), None) => {
+                    return None;
+                }
+                (None, Some(c)) => {
+                    let s_suffix = format!("{}{}", c, s.as_str());
+                    return match self.children.binary_search_by(|c| c.cmp_first_char(&s_suffix)) {
+                               Ok(child_idx) => self.children[child_idx].find(&s_suffix),
+                               Err(_) => None,
+                           };
+                }
+                (None, None) => {
+                    return self.value.as_ref();
+                }
+            };
         }
     }
 
@@ -175,14 +195,12 @@ impl PatriciaTree {
         let mut s = s.chars();
 
         loop {
-            enum IteratingState {
-                Continue,
-                Finished,
-            }
-
-            let st = match (prefix.get(c_idx), s.next()) {
-                (Some(&p), Some(c)) if p != c => IteratingState::Finished,
-                (Some(_), None) => IteratingState::Finished,
+            match (prefix.get(c_idx), s.next()) {
+                (Some(&p), Some(c)) if p == c => {
+                    c_idx += 1;
+                    assert!(c_idx <= self.prefix.len());
+                }
+                (Some(_), Some(_)) /* p != c */ | (Some(_), None) => { break; }
                 (None, Some(c)) => {
                     let s_suffix = format!("{}{}", c, s.as_str());
                     match self.children.binary_search_by(|c| c.cmp_first_char(&s_suffix)) {
@@ -192,65 +210,64 @@ impl PatriciaTree {
                         Err(_) => {}
                     }
 
-                    IteratingState::Finished
+                    break;
                 }
                 (None, None) => {
                     match self.children.len() {
                         0 => {
-                            // assert!(self.is_leaf); FIXME
-                            self.is_leaf = false;
+                            // assert!(self.value.is_some()); FIXME
+                            self.value = None;
                         }
                         1 => {
-                            assert!(self.is_leaf);
-                            // assert!(self.children[0].is_leaf); FIXME
+                            assert!(self.value.is_some());
+                            // assert!(self.children[0].value.is_some()); FIXME
                             self.prefix.push_str(&self.children[0].prefix);
-                            self.is_leaf = self.children[0].is_leaf; // FIXME
+                            std::mem::swap(&mut self.value, &mut self.children[0].value); // FIXME
+                            // self.value = self.children[0].value; // FIXME
                             self.children.clear();
                         }
                         _ => {
-                            self.is_leaf = false;
+                            self.value = None;
                         }
                     }
 
-                    IteratingState::Finished
-                }
-                _ => IteratingState::Continue,
-            };
-
-            match st {
-                IteratingState::Continue => {
-                    c_idx += 1;
-                    assert!(c_idx <= self.prefix.len());
-                }
-                IteratingState::Finished => {
-                    return;
+                    break;
                 }
             }
         }
     }
 
     pub fn size(&self) -> usize {
-        let leaf_cnt: usize = if self.is_leaf { 1 } else { 0 };
-        let children_cnt: usize = self.children.iter().map(|c| c.size()).sum();
+        let leaf_cnt: usize = if self.value.is_some() { 1 } else { 0 };
+        let children_cnt: usize = self.children
+            .iter()
+            .map(|c| c.size())
+            .sum();
         leaf_cnt + children_cnt
     }
 }
 
 use std::fmt::Display;
 
-impl Display for PatriciaTree {
+impl<Item> Display for PatriciaTree<Item>
+    where Item: Display
+{
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         const INDENT_WIDTH: usize = 2;
 
-        fn fmt_r(f: &mut std::fmt::Formatter, tree: &PatriciaTree, indent: usize) {
+        fn fmt_r<Item>(f: &mut std::fmt::Formatter, tree: &PatriciaTree<Item>, indent: usize)
+            where Item: Display
+        {
             for _ in 0..indent {
                 write!(f, " ").unwrap();
             }
-            writeln!(f,
-                     "- {} {}",
-                     tree.prefix,
-                     if tree.is_leaf { "[leaf]" } else { "" })
-                .unwrap();
+            write!(f, "- {} ", tree.prefix).unwrap();
+            if tree.value.is_some() {
+                writeln!(f, "{}", tree.value.as_ref().unwrap()).unwrap();
+            } else {
+                writeln!(f, "(none)").unwrap();
+            }
+
             for c in &tree.children {
                 fmt_r(f, c, indent + INDENT_WIDTH);
             }
@@ -277,7 +294,7 @@ mod tests {
         macro_rules! test {
             ($s: expr) => {{
                 println!("\nAdding \"{}\"...", $s);
-                root.add($s);
+                root.add($s, $s);
                 expected_size += 1;
                 println!("{:#?}", root);
                 assert_eq!(root.size(), expected_size);
@@ -300,7 +317,7 @@ mod tests {
         macro_rules! test {
             ($s: expr) => {{
                 println!("\nAdding \"{}\"...", $s);
-                root.add($s);
+                root.add($s, $s);
                 println!("{:#?}", root);
                 assert!(root.exist($s));
             }}
@@ -318,14 +335,36 @@ mod tests {
     }
 
     #[test]
+    fn find_test() {
+        let mut root = PatriciaTree::new();
+        root.add("test", 0);
+        root.add("tea", 1);
+        root.add("teapot", 2);
+        root.add("root", 3);
+        root.add("rooter", 4);
+        root.add("roast", 5);
+
+        println!("{:#?}", root);
+
+        assert!(root.find("test") == Some(&0));
+        assert!(root.find("tea") == Some(&1));
+        assert!(root.find("teapot") == Some(&2));
+        assert!(root.find("root") == Some(&3));
+        assert!(root.find("rooter") == Some(&4));
+        assert!(root.find("roast") == Some(&5));
+
+        assert!(root.find("po") == None);
+    }
+
+    #[test]
     fn remove_test() {
         let mut root = PatriciaTree::new();
-        root.add("test");
-        root.add("tea");
-        root.add("teapot");
-        root.add("root");
-        root.add("rooter");
-        root.add("roast");
+        root.add("test", 0);
+        root.add("tea", 1);
+        root.add("teapot", 2);
+        root.add("root", 3);
+        root.add("rooter", 4);
+        root.add("roast", 5);
 
         println!("{:#?}", root);
 
