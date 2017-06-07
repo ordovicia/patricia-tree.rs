@@ -114,7 +114,7 @@ impl<Item> PatriciaTree<Item> {
 
                     self.prefix = p_prefix;
 
-                    break;
+                    return;
                 }
                 (Some(_), None) => {
                     /*
@@ -135,7 +135,7 @@ impl<Item> PatriciaTree<Item> {
                     self.prefix = p_prefix;
                     self.value = Some(value);
 
-                    break;
+                    return;
                 }
                 (None, Some(c)) => {
                     let s_suffix = format!("{}{}", c, s.as_str());
@@ -148,11 +148,11 @@ impl<Item> PatriciaTree<Item> {
                         }
                     }
 
-                    break;
+                    return;
                 }
                 (None, None) => {
                     self.value = Some(value);
-                    break;
+                    return;
                 }
             }
         }
@@ -200,7 +200,7 @@ impl<Item> PatriciaTree<Item> {
                     c_idx += 1;
                     assert!(c_idx <= self.prefix.len());
                 }
-                (Some(_), Some(_)) /* p != c */ | (Some(_), None) => { break; }
+                (Some(_), Some(_)) /* p != c */ | (Some(_), None) => { return; }
                 (None, Some(c)) => {
                     let s_suffix = format!("{}{}", c, s.as_str());
                     match self.children.binary_search_by(|c| c.cmp_first_char(&s_suffix)) {
@@ -210,7 +210,7 @@ impl<Item> PatriciaTree<Item> {
                         Err(_) => {}
                     }
 
-                    break;
+                    return;
                 }
                 (None, None) => {
                     match self.children.len() {
@@ -231,7 +231,7 @@ impl<Item> PatriciaTree<Item> {
                         }
                     }
 
-                    break;
+                    return;
                 }
             }
         }
